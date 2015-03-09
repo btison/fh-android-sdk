@@ -1,5 +1,6 @@
 package com.feedhenry.sdk.sync;
 
+import java.io.StringWriter;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -8,6 +9,8 @@ import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
+import org.json.JSONString;
+import org.json.JSONWriter;
 
 public class FHSyncUtils {
 
@@ -17,32 +20,17 @@ public class FHSyncUtils {
   public static JSONArray sortObj(Object pObject) throws Exception {
     JSONArray results = new JSONArray();
     if (pObject instanceof JSONArray) {
-      results = new JSONArray();
       JSONArray castedObj = (JSONArray) pObject;
       for (int i = 0; i < castedObj.length(); i++) {
-        JSONObject obj = new JSONObject();
-        obj.put("key", i + "");
-        Object value = castedObj.get(i);
-        if (value instanceof JSONObject || value instanceof JSONArray) {
-          obj.put("value", sortObj(value));
-        } else {
-          obj.put("value", value);
-        }
+        FHJSONObjectWrapper obj = new FHJSONObjectWrapper(i+"", castedObj.get(i));
         results.put(obj);
       }
     } else if (pObject instanceof JSONObject) {
       JSONArray keys = ((JSONObject) pObject).names();
       List<String> sortedKeys = sortNames(keys);
       for (int i = 0; i < sortedKeys.size(); i++) {
-        JSONObject obj = new JSONObject();
         String key = sortedKeys.get(i);
-        Object value = ((JSONObject) pObject).get(key);
-        obj.put("key", sortedKeys.get(i));
-        if (value instanceof JSONObject || value instanceof JSONArray) {
-          obj.put("value", sortObj(value));
-        } else {
-          obj.put("value", value);
-        }
+        FHJSONObjectWrapper obj = new FHJSONObjectWrapper(key, ((JSONObject) pObject).get(key));
         results.put(obj);
       }
     } else {
@@ -55,6 +43,7 @@ public class FHSyncUtils {
     String hashValue = "";
     try {
       JSONArray sorted = sortObj(pObject);
+      String s = sorted.toString();
       hashValue = generateHash(sorted.toString());
     } catch (Exception e) {
       e.printStackTrace();
@@ -94,5 +83,49 @@ public class FHSyncUtils {
       Collections.sort(names);
     }
     return names;
+  }
+
+  public static class FHJSONObjectWrapper implements JSONString {
+    private String mKey;
+    private Object mValue;
+
+    public FHJSONObjectWrapper(String pKey, Object pValue){
+      this.key(pKey);
+      this.value(pValue);
+    }
+
+    public void key(String pKey){
+      this.mKey = pKey;
+    }
+
+    public void value(Object pValue){
+      if(pValue instanceof JSONObject || pValue instanceof  JSONArray){
+        try {
+          this.mValue = sortObj(pValue);
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      } else {
+        this.mValue = pValue;
+      }
+    }
+
+    @Override public String toJSONString() {
+      StringWriter sw = new StringWriter();
+      JSONWriter jw = new JSONWriter(sw);
+      jw.object().key("key").value(this.mKey).key("value").value(this.mValue).endObject();
+      String s = sw.toString();
+      System.out.println("sorted toJSONString = " + s);
+      return s;
+    }
+
+    @Override public String toString() {
+      StringWriter sw = new StringWriter();
+      JSONWriter jw = new JSONWriter(sw);
+      jw.object().key("key").value(this.mKey).key("value").value(this.mValue).endObject();
+      String s = sw.toString();
+      System.out.println("sorted toString = " + s);
+      return s;
+    }
   }
 }
